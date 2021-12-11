@@ -93,7 +93,12 @@ shinyServer(function(input, output, session) {
       tmp = as.data.frame(tstrsplit(genres[,1], '[|]',
                                     type.convert=TRUE),
                           stringsAsFactors=FALSE)
-      genre_movies = movies[which(tmp[,] == genre_selected),]
+      genre_movies = movies[which(tmp[,1] == genre_selected |
+                                    tmp[,2] == genre_selected |
+                                    tmp[,3] == genre_selected |
+                                    tmp[,4] == genre_selected |
+                                    tmp[,5] == genre_selected |
+                                    tmp[,6] == genre_selected ),]
       rating_genre = ratings[which(ratings[,"MovieID"] %in% genre_movies$MovieID),]
       
       #Find the movies which are rated by most users as the  popular movie.
