@@ -27,7 +27,7 @@ ratings = read.csv('data/ratings.dat',
 colnames(ratings) = c('UserID', 'MovieID', 'Rating', 'Timestamp')
 ratings$Timestamp = NULL
 
-print(paste0("ratings.dat took ", Sys.time()-prev_time))
+#print(paste0("ratings.dat took ", Sys.time()-prev_time))
 prev_time = Sys.time()
 
 # read movies data
@@ -44,7 +44,7 @@ movies$Year = as.numeric(unlist(lapply(movies$Title, function(x) substr(x, nchar
 small_image_url = "https://liangfgithub.github.io/MovieImages/"
 movies$image_url = sapply(movies$MovieID, function(x) paste0(small_image_url, x, '.jpg?raw=true'))
 
-print(paste0("movies.dat took ", Sys.time()-prev_time))
+#print(paste0("movies.dat took ", Sys.time()-prev_time))
 prev_time = Sys.time()
 
 # read users data
@@ -52,7 +52,32 @@ users = read.csv('data/users.dat', sep = ':', header = FALSE)
 users = users[, -c(2,4,6,8)] # skip columns
 colnames(users) = c('UserID', 'Gender', 'Age', 'Occupation', 'Zip-code')
 
-print(paste0("users.dat took ", Sys.time()-prev_time))
+#print(paste0("users.dat took ", Sys.time()-prev_time))
+prev_time = Sys.time()
+
+#use the whole ratings matrix to define Rmat
+train = ratings
+
+#Sparse Matrix
+i = paste0('u', train$UserID)
+j = paste0('m', train$MovieID)
+x = train$Rating
+tmp = data.frame(i, j, x, stringsAsFactors = T)
+Rmat = sparseMatrix(as.integer(tmp$i), as.integer(tmp$j), x = tmp$x)
+rownames(Rmat) = levels(tmp$i)
+colnames(Rmat) = levels(tmp$j)
+Rmat = new('realRatingMatrix', data = Rmat)
+
+#print(paste0("users.dat took ", Sys.time()-prev_time))
+prev_time = Sys.time()
+
+# UBCF Recommender Model
+
+rec_UBCF = Recommender(Rmat, method = "UBCF",
+                       parameter = list(normalize = 'Z-score', 
+                                        method = 'Cosine', 
+                                        nn = 25))
+print(paste0("rec_UBCF took ", Sys.time()-prev_time))
 prev_time = Sys.time()
 
 shinyServer(function(input, output, session) {
@@ -72,18 +97,6 @@ shinyServer(function(input, output, session) {
       rating_genre = ratings[which(ratings[,"MovieID"] %in% genre_movies$MovieID),]
       
       #Find the movies which are rated by most users as the  popular movie.
-      
-      i = paste0('u', rating_genre$UserID)
-      j = paste0('m', rating_genre$MovieID)
-      x = rating_genre$Rating
-      tmp = data.frame(i, j, x, stringsAsFactors = T)
-      Rmat = sparseMatrix(as.integer(tmp$i), as.integer(tmp$j), x = tmp$x)
-      rownames(Rmat) = levels(tmp$i)
-      colnames(Rmat) = levels(tmp$j)
-      Rmat = new('realRatingMatrix', data = Rmat)
-      
-      Rmat_matrix = as(Rmat, "matrix")
-      
       popular_movies  = rating_genre %>%  group_by(MovieID) %>% 
         summarize(ratings_per_movie = n(), ave_ratings = mean(Rating)) %>%
         inner_join(genre_movies, by = 'MovieID')
@@ -91,7 +104,7 @@ shinyServer(function(input, output, session) {
       popular_movies = popular_movies %>% arrange(desc(ratings_per_movie))
       
       Top_popular_movies = popular_movies[1:10,]
-      print(Top_popular_movies)
+      #print(Top_popular_movies)
       recom_results <- data.table(Rank = 1:10,
                                   MovieID = Top_popular_movies$MovieID,
                                   Title = Top_popular_movies$Title,
@@ -128,37 +141,59 @@ shinyServer(function(input, output, session) {
   
   # show the movies to be rated
   output$ratings <- renderUI({
-    num_rows <- 20
-    num_movies <- 5 # movies per row
-    
-    lapply(1:num_rows, function(i) {
-      list(fluidRow(lapply(1:num_movies, function(j) {
-        list(box(width = 2,
-                 div(style = "text-align:center", img(src = movies$image_url[(i - 1) * num_movies + j], height = 150)),
-                 div(style = "text-align:center", strong(movies$Title[(i - 1) * num_movies + j])),
-                 div(style = "text-align:center; font-size: 150%; color: #f0ad4e;", ratingInput(paste0("select_", movies$MovieID[(i - 1) * num_movies + j]), label = "", dataStop = 5)))) #00c0ef
-      })))
-    })
+      num_rows <- 20
+      num_movies <- 5 # movies per row
+      
+      lapply(1:num_rows, function(i) {
+        list(fluidRow(lapply(1:num_movies, function(j) {
+          list(box(width = 2,
+                   div(style = "text-align:center", img(src = movies$image_url[(i - 1) * num_movies + j], height = 150)),
+                   div(style = "text-align:center", strong(movies$Title[(i - 1) * num_movies + j])),
+                   div(style = "text-align:center; font-size: 150%; color: #f0ad4e;", ratingInput(paste0("select_", movies$MovieID[(i - 1) * num_movies + j]), label = "", dataStop = 5)))) #00c0ef
+        })))
+      })
   })
   
   # Calculate recommendations when the submit button is clicked
-  df <- eventReactive(input$btn, {
+  recomm_df <- eventReactive(input$btn, {
     withBusyIndicatorServer("btn", { # showing the busy indicator
         # hide the rating container
         useShinyjs()
         jsCode <- "document.querySelector('[data-widget=collapse]').click();"
         runjs(jsCode)
         
-        # get the user's rating data
+        # Handle NewUser Ratings
         value_list <- reactiveValuesToList(input)
         user_ratings <- get_user_ratings(value_list)
         
-        user_results = (1:10)/10
-        user_predicted_ids = 1:10
+        print(user_ratings)
+        
+        movieIDs = colnames(Rmat)
+        n.item = ncol(Rmat)
+
+        new.ratings = rep(NA, n.item)
+        for(mr in seq_len(nrow(user_ratings))) {
+            new.ratings[which(movies$MovieID == user_ratings$MovieID[mr])] = user_ratings$Rating[mr]
+        }
+
+        new.user = matrix(new.ratings, 
+                          nrow=1, ncol=n.item,
+                          dimnames = list(
+                            user=paste('vsc5'),
+                            item=movieIDs
+                          ))
+        new.Rmat = as(new.user, 'realRatingMatrix')
+        
+        # new user predictions
+        pred_UBCF = predict(rec_UBCF, new.Rmat, n = 10, type = 'topNList')
+        matched_movieIDs = getList(pred_UBCF)
+        
+        matched_movies = movies[which(colnames(Rmat) %in% matched_movieIDs[[1]]), ]
+        
         recom_results <- data.table(Rank = 1:10, 
-                                    MovieID = movies$MovieID[user_predicted_ids], 
-                                    Title = movies$Title[user_predicted_ids], 
-                                    Predicted_rating =  user_results)
+                                    MovieID = matched_movies$MovieID, 
+                                    Title = matched_movies$Title,
+                                    Predicted_rating = ratings[which(colnames(Rmat) %in% matched_movieIDs[[1]]), ]$Rating)
         
     }) # still busy
     
@@ -169,7 +204,7 @@ shinyServer(function(input, output, session) {
   output$results <- renderUI({
     num_rows <- 2
     num_movies <- 5
-    recom_result <- df()
+    recom_result <- recomm_df()
     
     lapply(1:num_rows, function(i) {
       list(fluidRow(lapply(1:num_movies, function(j) {
