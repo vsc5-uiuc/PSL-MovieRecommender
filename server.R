@@ -166,7 +166,7 @@ shinyServer(function(input, output, session) {
         value_list <- reactiveValuesToList(input)
         user_ratings <- get_user_ratings(value_list)
         
-        print(user_ratings)
+        #print(user_ratings)
         
         movieIDs = colnames(Rmat)
         n.item = ncol(Rmat)
