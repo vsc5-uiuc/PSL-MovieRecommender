@@ -1,0 +1,13 @@
+name: MovieRecommender
+title: MovieRecommender
+username:
+account: vsc5
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 5308496
+bundleId: 5359214
+url: https://vsc5.shinyapps.io/MovieRecommender/
+when: 1639219153.34735
+lastSyncTime: 1639219153.34735
+asMultiple: FALSE
+asStatic: FALSE

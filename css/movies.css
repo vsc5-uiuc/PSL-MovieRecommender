@@ -1,0 +1,20 @@
+.rateitems {
+   padding-left: 5px; 
+   height: 450px; 
+   overflow-y: scroll;
+}
+
+.border-box {
+   padding: 5px;
+}
+
+.btn-warning {
+   color: white; 
+   font-size: 120%;
+}
+
+.btn-success {
+   color: white; 
+   font-size: 120%;
+   background-color: green;
+}
