@@ -31,7 +31,7 @@ shinyUI(
                     box(
                       selectInput(inputId = "genre", 
                                   label = "Choose a Genre:",
-                                  choices = c("Action", "Adventure", "Comedy", "Crime", "Drama", "Horror", "Romance", "Sci-Fi", "Thriller"), 
+                                  choices = c("Action", "Adventure", "Animation", "Comedy", "Crime", "Documentary", "Drama", "Fantasy", "Horror", "Musical", "Mystery", "Romance", "Sci-Fi", "Thriller", "War", "Western"), 
                                   selected = "Action"),
                       withBusyIndicatorUI(
                         actionButton("showTopBtn", "Show Popular Movies", class = "btn-success")
