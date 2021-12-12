@@ -5,9 +5,9 @@ account: vsc5
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 5308496
-bundleId: 5360540
+bundleId: 5361038
 url: https://vsc5.shinyapps.io/MovieRecommender/
-when: 1639257707.17958
-lastSyncTime: 1639257707.17958
+when: 1639270370.07904
+lastSyncTime: 1639270370.07904
 asMultiple: FALSE
 asStatic: FALSE

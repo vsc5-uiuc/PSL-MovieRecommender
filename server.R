@@ -72,7 +72,6 @@ Rmat = new('realRatingMatrix', data = Rmat)
 prev_time = Sys.time()
 
 # UBCF Recommender Model
-
 rec_UBCF = Recommender(Rmat, method = "UBCF",
                        parameter = list(normalize = 'Z-score', 
                                         method = 'Cosine', 
@@ -109,7 +108,6 @@ shinyServer(function(input, output, session) {
       recom_results <- data.table(Rank = 1:10,
                                   MovieID = Top_popular_movies$MovieID,
                                   Title = Top_popular_movies$Title,
-                                  Predicted_rating =  Top_popular_movies$ave_ratings,
                                   image_url = Top_popular_movies$image_url)
       
     }) # still busy
@@ -173,28 +171,27 @@ shinyServer(function(input, output, session) {
         n.item = ncol(Rmat)
 
         new.ratings = rep(NA, n.item)
-        for(mr in seq_len(nrow(user_ratings))) {
-            new.ratings[which(movies$MovieID == user_ratings$MovieID[mr])] = user_ratings$Rating[mr]
-        }
-
         new.user = matrix(new.ratings, 
                           nrow=1, ncol=n.item,
                           dimnames = list(
                             user=paste('vsc5'),
                             item=movieIDs
                           ))
+        
+        new.user[1, paste0('m', user_ratings$MovieID)] = user_ratings$Rating
         new.Rmat = as(new.user, 'realRatingMatrix')
         
         # new user predictions
         pred_UBCF = predict(rec_UBCF, new.Rmat, n = 10, type = 'topNList')
-        matched_movieIDs = getList(pred_UBCF)
+        matched_movieIDs = getList(pred_UBCF)[[1]]
+        matched_movieIDs = as.integer(sub('.', '', matched_movieIDs))
         
-        matched_movies = movies[which(colnames(Rmat) %in% matched_movieIDs[[1]]), ]
+        matched_movies = movies[movies$MovieID %in% matched_movieIDs, ]
         
-        recom_results <- data.table(Rank = 1:10, 
+        recom_results <- data.table(Rank = 1:10,
                                     MovieID = matched_movies$MovieID, 
                                     Title = matched_movies$Title,
-                                    Predicted_rating = ratings[which(colnames(Rmat) %in% matched_movieIDs[[1]]), ]$Rating)
+                                    image_url = matched_movies$image_url)
         
     }) # still busy
     
@@ -212,13 +209,12 @@ shinyServer(function(input, output, session) {
         box(width = 2, status = "success", solidHeader = TRUE, title = paste0("Rank ", (i - 1) * num_movies + j),
             
           div(style = "text-align:center", 
-              a(img(src = movies$image_url[recom_result$MovieID[(i - 1) * num_movies + j]], height = 150))
+              a(img(src = recom_result$image_url[(i - 1) * num_movies + j], height = 150))
              ),
           div(style="text-align:center; font-size: 100%", 
-              strong(movies$Title[recom_result$MovieID[(i - 1) * num_movies + j]])
+              strong(recom_result$Title[(i - 1) * num_movies + j])
              )
-          
-        )        
+        )
       }))) # columns
     }) # rows
     
